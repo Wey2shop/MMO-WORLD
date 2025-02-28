@@ -1,0 +1,124 @@
+
+/* Profile and avatar selection styles */
+.profile-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  display: none;
+}
+
+.profile-card {
+  background-color: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.profile-card h2 {
+  margin-top: 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.profile-card .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.avatar-selection {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.avatar-option {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.avatar-option:hover {
+  transform: scale(1.1);
+}
+
+.avatar-option.selected {
+  border-color: #4CAF50;
+}
+
+.profile-stats {
+  margin-top: 20px;
+}
+
+.profile-stats table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.profile-stats table td {
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.profile-stats table td:first-child {
+  font-weight: bold;
+}
+
+.profile-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-actions button {
+  margin-left: 10px;
+  padding: 8px 15px;
+  cursor: pointer;
+}
+
+.inventory-preview {
+  margin-top: 20px;
+}
+
+.inventory-preview h3 {
+  margin-bottom: 10px;
+}
+
+.inventory-item-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.inventory-item-preview {
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.inventory-item-preview img {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 5px;
+}

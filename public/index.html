@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMO World</title>
+    <!-- OpenStreetMap's Leaflet CSS and JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 2;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+
+        #chat-input {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            width: 80%;
+            max-width: 500px;
+            display: flex;
+        }
+
+        #chat-input input {
+            flex-grow: 1;
+            padding: 8px;
+            border-radius: 5px 0 0 5px;
+            border: 1px solid #ccc;
+        }
+
+        #chat-input button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+        }
+
+        #inventory {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 2;
+            max-width: 200px;
+            overflow-y: auto;
+        }
+
+        #inventory-items {
+            height: 400px; /* Add a fixed height to the inventory items container */
+            overflow-y: auto;
+        }
+        
+        
+        .player-marker {
+            position: relative;
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            cursor: pointer; /* Make avatars clickable */
+        }
+
+
+}
+        .player-name {
+            text-align: center;
+            white-space: nowrap;
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .chat-bubble {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 15px;
+            padding: 5px 10px;
+            max-width: 120px;
+            word-wrap: break-word;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            z-index: 1000;
+            white-space: nowrap;
+        }
+
+        .chat-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid white;
+        }
+
+        .item-marker {
+            width: 25px;
+            height: 25px;
+            background-color: gold;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: black;
+            cursor: pointer;
+            border: 2px solid white;
+            position: relative;
+        }
+
+        .item-collecting {
+            border: 2px dashed red;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .collection-progress {
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .collection-progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width linear 0.1s;
+        }
+
+        .collection-tooltip {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        #error-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            text-align: center;
+            display: none; /* Initially hidden */
+            z-index: 10000; /* Ensure it's on top */
+        }
+
+        .attackable-player {
+            border: 2px solid red; /* Highlight attackable players */
+            box-shadow: 0 0 10px red; /* Add a glow effect */
+        }
+
+        .targetable-player {
+            cursor: pointer !important;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .targetable-player:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px yellow;
+            z-index: 1000;
+        }
+        
+    </style>
+</head>
+<body>
+    
+    <script>
+        // Add document-level event listener for ESC key to cancel targeting modes
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                // Cancel attack mode
+                if (attackMode.active) {
+                    attackMode.active = false;
+                    attackMode.weaponId = null;
+                    attackMode.damage = 0;
+                    document.body.style.cursor = 'default';
+                    removePlayerHighlights();
+                    showCollectionErrorBanner("Attack canceled");
+                }
+
+                // Cancel heal mode
+                if (healMode && healMode.active) {
+                    healMode.active = false;
+                    healMode.itemId = null;
+                    healMode.healAmount = 0;
+                    document.body.style.cursor = 'default';
+                    removePlayerHighlights();
+                    showCollectionErrorBanner("Healing canceled");
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="map"></div>
+        <div id="error-banner"></div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); overflow: auto;">
+            <div style="background-color: #f9f9f9; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 500px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">Settings</h2>
+                    <button id="close-settings" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="nickname-input" style="display: block; margin-bottom: 5px; font-weight: bold;">Nickname:</label>
+                    <input type="text" id="nickname-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Avatar:</label>
+                    <div id="avatar-selector" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                        <!-- Avatars will be loaded here -->
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <h3>Stats</h3>
+                    <div id="player-stats" style="background-color: #f0f0f0; padding: 10px; border-radius: 4px;">
+                        <!-- Stats will be loaded here -->
+                    </div>
+                </div>
+
+                <button id="save-settings" style="background-color: #4CAF50; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%;">Save Changes</button>
+            </div>
+        </div>
+
+        <div id="ui-overlay">
+            <h3>MMO World</h3>
+            <div id="player-info">
+                <p>Loading player data...</p>
+            </div>
+            <div id="nearby-players">
+                <p>Nearby players: <span id="player-count">0</span></p>
+            </div>
+            <div style="display: flex; gap: 5px; margin-top: 10px;">
+                <button id="home-button" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L8 2.207l6.646 6.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                        <path d="m8 3.293 6 6V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5V9.293l6-6Z"/>
+                    </svg>
+                </button>
+                <button id="settings-button" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0 1.116 2.692l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.115l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="inventory">
+            <h3>Inventory</h3>
+            <div id="inventory-items">
+                No items
+            </div>
+        </div>
+
+        <div id="chat-input">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let map, playerMarkers = {}, itemMarkers = [], playerId, player;
+        let socket, players = {}, items = [];
+        let movementRadiusCircle; // Make movementRadiusCircle global
+        let lastChatMessageTime = 0; // timestamp for last chat message
+
+        // Initialize the application
+        function init() {
+            console.log("Initializing application...");
+
+            // Create map centered at a default location (will update with player position)
+            map = L.map('map').setView([40.7128, -74.0060], 18); // Default to NYC
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Create a movement radius circle layer (initially not visible)
+            movementRadiusCircle = L.circle([0, 0], {
+                radius: 100, // 100 meters radius
+                color: '#3388ff',
+                fillColor: '#3388ff',
+                fillOpacity: 0.2,
+                weight: 2,
+                dashArray: '5, 10',
+                interactive: false
+            }).addTo(map);
+
+            // Add click handler to the map for movement
+            map.on('click', function(e) {
+                if (!player || !socket || socket.readyState !== WebSocket.OPEN) return;
+
+                // Calculate distance from GPS position (not player position) to clicked point
+                const gpsPos = player.gpsPosition || player.position; // Fallback if GPS not set yet
+                const clickedPos = e.latlng;
+
+                // Calculate distance using Haversine formula (simplified)
+                const dist = Math.sqrt(
+                    Math.pow(clickedPos.lat - gpsPos.lat, 2) + 
+                    Math.pow(clickedPos.lng - gpsPos.lng, 2)
+                );
+
+                // Check if the clicked point is within the movement radius from GPS
+                if (dist <= 0.001) { // Roughly 100 meters, matching the circle radius
+                    // Send the position update to the server
+                    socket.send(JSON.stringify({
+                        type: "update_position",
+                        position: { lat: clickedPos.lat, lng: clickedPos.lng }
+                    }));
+
+                    // Update local player position but NOT the GPS position
+                    player.position = { lat: clickedPos.lat, lng: clickedPos.lng };
+
+                    // Update player marker only, NOT the movement radius circle
+                    if (playerMarkers[playerId]) {
+                        playerMarkers[playerId].setLatLng([clickedPos.lat, clickedPos.lng]);
+                    }
+                } else {
+                    console.log("Clicked point is outside movement radius");
+                    // Provide visual feedback that the move is invalid
+                    flashMovementRadius();
+                }
+            });
+
+            // Set up event listeners
+            document.getElementById('send-button').addEventListener('click', sendChatMessage);
+            document.getElementById('message-input').addEventListener('keypress', e => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+
+            // Add Home button functionality
+            document.getElementById('home-button').addEventListener('click', () => {
+                if (player && player.position) {
+                    map.setView([player.position.lat, player.position.lng], 18);
+                }
+            });
+
+            // Settings button functionality
+            document.getElementById('settings-button').addEventListener('click', openSettingsModal);
+            document.getElementById('close-settings').addEventListener('click', closeSettingsModal);
+            document.getElementById('save-settings').addEventListener('click', saveSettings);
+
+            // Setup WebSocket first
+            setupWebSocket();
+
+            // Then get user's location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const { latitude, longitude } = position.coords;
+                        console.log("Got user location:", latitude, longitude);
+                        map.setView([latitude, longitude], 18);
+
+                        // Only update position if we already have a player ID
+                        if (player && playerId) {
+                            updatePlayerPosition(position);
+                        }
+                    },
+                    error => {
+                        console.error("Error getting location:", error);
+                        console.log("Using default location instead");
+                    }
+                );
+
+                // Set up continuous location tracking
+                navigator.geolocation.watchPosition(updatePlayerPosition, error => {
+                    console.error("Error tracking location:", error);
+                });
+            } else {
+                console.log("Geolocation is not supported by this browser. Using default location.");
+            }
+        }
+
+        // Set up WebSocket connection
+        function setupWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            console.log("Setting up WebSocket connection to:", wsUrl);
+
+            // Close existing socket if it exists
+            if (socket) {
+                socket.close();
+            }
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                console.log("Connected to server successfully");
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("Received message from server:", data.type);
+                    handleServerMessage(data);
+                } catch (e) {
+                    console.error("Error parsing WebSocket message:", e, event.data);
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+
+            socket.onclose = (event) => {
+                console.log("Disconnected from server with code:", event.code, "reason:", event.reason);
+                // Only try to reconnect if it wasn't a normal closure
+                if (event.code !== 1000) {
+                    console.log("Attempting to reconnect in 3 seconds...");
+                    setTimeout(setupWebSocket, 3000);
+                }
+            };
+        }
+
+        // Store processed chat messages to avoid repetition
+        const processedMessages = new Map(); // Map of playerId -> lastProcessedMessage
+
+        // Handle messages from the server
+        function handleServerMessage(data) {
+            switch(data.type) {
+                case "init":
+                    playerId = data.playerId;
+                    player = data.player;
+                    players = data.players;
+                    items = data.items;
+
+                    // Store available avatars for settings
+                    if (data.availableAvatars && data.availableAvatars.length > 0) {
+                        window.availableAvatars = data.availableAvatars;
+                    }
+
+                    // Initialize the processed messages map
+                    Object.keys(players).forEach(pid => {
+                        if (players[pid].lastMessage) {
+                            processedMessages.set(pid, players[pid].lastMessage);
+                        }
+                    });
+
+                    updateUI();
+                    renderWorld();
+                    break;
+
+                case "world_update":
+                    // Process any new chat messages before updating player data
+                    Object.keys(data.players).forEach(pid => {
+                        const playerData = data.players[pid];
+                        // Only process message if it's new and not empty
+                        if (playerData.lastMessage && 
+                            (!processedMessages.has(pid) || 
+                             processedMessages.get(pid) !== playerData.lastMessage)) {
+
+                            // Store this message as processed
+                            processedMessages.set(pid, playerData.lastMessage);
+
+                            // Create and display chat bubble for this new message
+                            console.log(`New chat message from ${playerData.name}: ${playerData.lastMessage}`);
+                            createChatBubbleForPlayer(pid, playerData);
+                        }
+                    });
+
+                    // Now update the game state
+                    players = data.players;
+                    items = data.items;
+                    updateUI();
+                    renderWorld(false); // Pass false to skip chat bubble processing in renderWorld
+                    break;
+
+                case "player_joined":
+                    players[data.player.id] = data.player;
+                    updateUI();
+                    renderWorld();
+                    break;
+
+                case "player_left":
+                    delete players[data.playerId];
+                    processedMessages.delete(data.playerId); // Clean up processed messages
+                    removePlayerMarker(data.playerId);
+                    updateUI();
+                    break;
+
+                case "view_profile":
+                    displayProfile(data.profile);
+                    break;
+
+                case "collection_started":
+                    console.log("Collection started for item:", data.itemId, "Time:", data.collectionTime);
+                    startCollection(data.itemId, data.collectionTime);
+                    break;
+
+                case "collection_complete":
+                    console.log("Collection completed for item:", data.itemId);
+                    // Item will be removed in the next world update
+                    // Update player gold and inventory if provided
+                    if (player) {
+                        if (data.playerGold !== undefined) {
+                            player.gold = data.playerGold;
+                        }
+                        if (data.inventory) {
+                            player.inventory = data.inventory;
+                        }
+                        updateUI();
+                    }
+                    break;
+
+                case "collection_error":
+                    console.error("Collection error:", data.message);
+                    showCollectionErrorBanner(data.message); // Show banner for collection errors
+                    break;
+
+                case "item_spawned":
+                    console.log("New item spawned:", data.item);
+                    items.push(data.item);
+                    renderItems(); // Only re-render items
+                    break;
+
+                case "item_used":
+                    // Display message and update UI for item usage
+                    showCollectionErrorBanner(data.message); // Reuse the banner for success messages
+                    if (data.newHP !== undefined && player) {
+                        player.hp = data.newHP;
+                        updateUI();
+                    }
+                    break;
+
+                case "weapon_ready":
+                    // Enter attack mode with the selected weapon
+                    attackMode.active = true;
+                    attackMode.weaponId = data.weaponId;
+                    attackMode.damage = data.damage;
+
+                    // Change cursor to indicate attack mode
+                    document.body.style.cursor = 'crosshair';
+
+                    // Show instruction
+                    showCollectionErrorBanner(data.message);
+
+                    // Add an event to cancel attack mode if ESC is pressed
+                    const cancelAttackListener = function(e) {
+                        if (e.key === 'Escape') {
+                            cancelAttackMode();
+                            document.removeEventListener('keydown', cancelAttackListener);
+                        }
+                    };
+                    document.addEventListener('keydown', cancelAttackListener);
+                    break;
+
+                case "attack_success":
+                case "attack_failed":
+                    // Show attack result message
+                    showCollectionErrorBanner(data.message);
+                    break;
+
+                case "attacked":
+                    // Show message that player was attacked
+                    showCollectionErrorBanner(data.message);
+                    // Update player HP if this is the current player
+                    if (data.currentHP !== undefined && player) {
+                        player.hp = data.currentHP;
+                        updateUI();
+                    }
+                    break;
+
+                case "heal_success":
+                case "heal_failed":
+                    // Show healing result message
+                    showCollectionErrorBanner(data.message);
+                    break;
+
+                case "healed":
+                    // Show message that player was healed
+                    showCollectionErrorBanner(data.message);
+                    // Update player HP if this is the current player
+                    if (data.currentHP !== undefined && player) {
+                        player.hp = data.currentHP;
+                        updateUI();
+                    }
+                    break;
+
+                case "chat_message":
+                    // This case is now handled by the "world_update" case
+                    // The message will be processed when the next world update arrives
+                    console.log("Chat message received, will be displayed on next world update");
+                    break;
+
+                case "item_dropped":
+                    // Show item dropped message
+                    showCollectionErrorBanner(data.message);
+                    break;
+            }
+        }
+
+
+        // Update player's position based on geolocation
+        function updatePlayerPosition(position) {
+            if (!player || !socket) return;
+
+            const { latitude, longitude } = position.coords;
+
+            // Store the GPS location separately from the player position
+            if (!player.gpsPosition) {
+                player.gpsPosition = { lat: latitude, lng: longitude };
+                player.position = { lat: latitude, lng: longitude };
+            } else {
+                player.gpsPosition = { lat: latitude, lng: longitude };
+                // Keep player position as is if within radius, otherwise update to GPS
+
+                // Check if player is within radius of GPS
+                const dist = Math.sqrt(
+                    Math.pow(player.position.lat - latitude, 2) + 
+                    Math.pow(player.position.lng - longitude, 2)
+                );
+
+                if (dist > 0.001) { // If outside radius (100m), reset position to GPS
+                    player.position = { lat: latitude, lng: longitude };
+                }
+            }
+
+            if (socket.readyState === WebSocket.OPEN) {
+                // Only update server with actual player position, not GPS
+                socket.send(JSON.stringify({
+                    type: "update_position",
+                    position: player.position
+                }));
+
+                // Update our own marker position
+                if (playerMarkers[playerId]) {
+                    playerMarkers[playerId].setLatLng([player.position.lat, player.position.lng]);
+                } else {
+                    // If our marker doesn't exist yet, create it
+                    createOrUpdatePlayerMarker(playerId, player);
+                }
+
+                // Update movement radius circle to follow GPS location, not player
+                if (movementRadiusCircle) {
+                    movementRadiusCircle.setLatLng([latitude, longitude]);
+                }
+
+                // Only center map when player initially joins or when Home button is clicked
+                if (!window.playerInitialized) {
+                    map.setView([latitude, longitude]);
+                    window.playerInitialized = true;
+                }
+            }
+        }
+
+        // Send a chat message
+        function sendChatMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+
+            if (message && socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: "chat_message",
+                    message: message
+                }));
+                messageInput.value = '';
+            }
+        }
+
+        // Create or update a player marker on the map
+        function createOrUpdatePlayerMarker(playerId, playerData, processChatMessages = false) {
+            // Check if position is valid
+            if (!playerData.position || typeof playerData.position.lat !== 'number' || typeof playerData.position.lng !== 'number') {
+                console.error("Invalid position data for player:", playerId, playerData);
+                return;
+            }
+
+            if (playerMarkers[playerId]) {
+                // Update existing marker position
+                playerMarkers[playerId].setLatLng([playerData.position.lat, playerData.position.lng]);
+
+                // Skip chat bubble processing here - it's now handled separately in createChatBubbleForPlayer
+                // This prevents the same message from being shown multiple times
+            } else {
+                // Create new marker
+                const markerContent = document.createElement('div');
+                markerContent.className = 'player-marker';
+
+                // If in attack mode and this is not the current player, add a special class
+                if (attackMode.active && playerId !== window.playerId) {
+                    markerContent.className += ' attackable-player';
+                }
+
+                const avatar = document.createElement('img');
+                avatar.className = 'player-avatar';
+                avatar.src = playerData.avatar || `https://robohash.org/${playerId}?size=64x64&set=set1`; // Fallback avatar
+                avatar.alt = playerData.name;
+                avatar.onload = () => {
+                    console.log(`Avatar loaded for ${playerData.name}`);
+                };
+                avatar.onerror = () => {
+                    console.error(`Failed to load avatar for ${playerData.name}`);
+                    avatar.src = `https://robohash.org/${playerId}?size=64x64&set=set1`; // Fallback avatar
+                };
+
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'player-name';
+                nameLabel.textContent = playerData.name;
+
+                markerContent.appendChild(avatar);
+                markerContent.appendChild(nameLabel);
+
+                const icon = L.divIcon({
+                    html: markerContent.outerHTML,
+                    className: 'player-marker-icon',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40]
+                });
+
+                try {
+                    const marker = L.marker([playerData.position.lat, playerData.position.lng], { icon }).addTo(map);
+                    playerMarkers[playerId] = marker;
+
+                    // Store the player ID with the marker for later reference
+                    marker.playerId = playerId;
+
+                    // Add click event to show player profile, attack, or heal based on mode
+                    marker.on('click', () => {
+                        const clickedPlayerId = marker.playerId;
+                        console.log("Player clicked:", clickedPlayerId);
+
+                        // If in attack mode, attack the clicked player
+                        if (attackMode.active) {
+                            attackPlayer(clickedPlayerId);
+                            return;
+                        }
+
+                        // If in heal mode, heal the clicked player
+                        if (healMode.active) {
+                            healPlayer(clickedPlayerId);
+                            return;
+                        }
+
+                        // Otherwise show profile
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: "view_profile",
+                                profilePlayerId: clickedPlayerId
+                            }));
+                        }
+                    });
+
+                    console.log(`Created marker for player ${playerData.name} at position:`, playerData.position);
+                } catch (error) {
+                    console.error("Error creating marker:", error);
+                }
+            }
+        }
+
+        // Remove a player marker from the map
+        function removePlayerMarker(playerId) {
+            if (playerMarkers[playerId]) {
+                map.removeLayer(playerMarkers[playerId]);
+                delete playerMarkers[playerId];
+            }
+        }
+
+        // Render items on the map
+        function renderItems() {
+            // Clear existing item markers
+            itemMarkers.forEach(marker => map.removeLayer(marker));
+            itemMarkers = [];
+
+            // Add new item markers
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item-marker';
+                itemDiv.textContent = item.name ? item.name.charAt(0) : 'I';
+                itemDiv.id = `item-${item.itemId}`; // Use itemId, not id
+
+                const collectionProgress = document.createElement('div');
+                collectionProgress.className = 'collection-progress';
+                const progressBar = document.createElement('div');
+                progressBar.className = 'collection-progress-bar';
+                collectionProgress.appendChild(progressBar);
+                itemDiv.appendChild(collectionProgress);
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'collection-tooltip';
+                tooltip.textContent = item.name || 'Unknown Item';
+                itemDiv.appendChild(tooltip);
+
+                const icon = L.divIcon({
+                    html: itemDiv.outerHTML,
+                    className: 'item-marker-icon',
+                    iconSize: [25, 25],
+                    iconAnchor: [12, 12]
+                });
+
+                const marker = L.marker([item.position.lat, item.position.lng], { icon }).addTo(map);
+
+                // Add click event to pickup item
+                marker.on('click', () => {
+                    console.log("Attempting to pick up item:", item.itemId);
+                    socket.send(JSON.stringify({
+                        type: "pickup_item",
+                        itemId: item.itemId
+                    }));
+                });
+
+                itemMarkers.push(marker);
+            });
+        }
+
+        // Collection timers for each item
+        const collectionTimers = {};
+
+        // Start collection timer for an item
+        function startCollection(itemId, collectionTime) {
+            console.log("Starting collection for item:", itemId, "Time:", collectionTime);
+
+            // Find the item marker in the DOM
+            // We need to wait a bit for the marker to be fully rendered
+            setTimeout(() => {
+                const itemElement = document.querySelector(`[id="item-${itemId}"]`);
+                if (!itemElement) {
+                    console.error("Could not find item element:", itemId);
+                    return;
+                }
+
+                // Add collecting class
+                itemElement.classList.add('item-collecting');
+
+                // Find progress bar
+                const progressBar = itemElement.querySelector('.collection-progress-bar');
+                if (!progressBar) {
+                    console.error("Could not find progress bar for item:", itemId);
+                    return;
+                }
+
+                // Clear any existing timer
+                if (collectionTimers[itemId]) {
+                    clearInterval(collectionTimers[itemId].interval);
+                }
+
+                // Set up the timer
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 100 / (collectionTime / 100); // 100ms intervals
+                    progressBar.style.width = `${Math.min(progress, 100)}%`;
+
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        delete collectionTimers[itemId];
+                    }
+                }, 100);
+
+                // Store the timer
+                collectionTimers[itemId] = {
+                    interval: interval,
+                    startTime: Date.now(),
+                    duration: collectionTime
+                };
+
+            }, 100);
+        }
+
+
+        // Update the UI with player information
+        function updateUI() {
+            if (!player) return;
+
+            // Update player info
+            const playerInfoElement = document.getElementById('player-info');
+            playerInfoElement.innerHTML = `
+                <p><strong>Name:</strong> ${player.name}</p>
+                <p><strong>Level:</strong> ${player.level}</p>
+                <p><strong>HP:</strong> ${player.hp}</p>
+                <p><strong>Gold:</strong> ${player.gold}</p>
+            `;
+
+            // Update nearby player count
+            const playerCount = Object.keys(players).length - 1; // Exclude self
+            document.getElementById('player-count').textContent = playerCount;
+
+            // Update inventory - make items clickable
+            const inventoryElement = document.getElementById('inventory-items');
+            if (player.inventory && player.inventory.length > 0) {
+                inventoryElement.innerHTML = player.inventory.map(item => {
+                    // Create a more detailed inventory item display with action buttons
+                    return `<div class="inventory-item" style="margin-bottom: 12px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+                        <div style="font-weight: bold;">${item.name}</div>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${item.description || ''}</div>
+                        <div style="font-size: 12px; margin-bottom: 6px;">Type: ${item.type} | Rarity: ${item.rarity || 'common'}</div>
+                        <div style="font-size: 11px; color: #333; margin-bottom: 5px;">
+                            ${item.stats ? Object.entries(item.stats).map(([key, value]) => 
+                                `<span style="margin-right: 8px;"><b>${key}</b>: ${value}</span>`
+                            ).join('') : 'No stats'}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                            <button onclick="useItem('${item.itemId}')" style="padding: 3px 8px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Use</button>
+                            <button onclick="dropItem('${item.itemId}')" style="padding: 3px 8px; background-color: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Drop</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                inventoryElement.innerHTML = 'No items';
+            }
+        }
+
+        // Create a chat bubble for a specific player
+        function createChatBubbleForPlayer(playerId, playerData) {
+            if (!playerData.lastMessage) return;
+
+            // Create the bubble element
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            bubble.textContent = playerData.lastMessage;
+
+            // Find the player marker
+            const marker = playerMarkers[playerId];
+            if (!marker) return;
+
+            // Get the marker's DOM element
+            const markerElement = marker.getElement();
+            if (!markerElement) return;
+
+            // Remove existing chat bubble if any
+            const existingBubble = markerElement.querySelector('.chat-bubble');
+            if (existingBubble) {
+                existingBubble.remove();
+            }
+
+            // Add the new bubble
+            markerElement.appendChild(bubble);
+
+            // Schedule removal
+            setTimeout(() => {
+                const bubbleToRemove = markerElement.querySelector('.chat-bubble');
+                if (bubbleToRemove) {
+                    bubbleToRemove.remove();
+                }
+            }, 10000);
+        }
+
+        // Render the entire world state
+        function renderWorld(processChatMessages = true) {
+            console.log("Rendering world with players:", Object.keys(players).length);
+
+            // Render all players
+            Object.entries(players).forEach(([id, playerData]) => {
+                if (!playerData.position || typeof playerData.position.lat !== 'number') {
+                    console.warn(`Player ${id} has invalid position:`, playerData.position);
+                    return;
+                }
+                console.log(`Rendering player ${id} at position:`, playerData.position);
+                createOrUpdatePlayerMarker(id, playerData, processChatMessages);
+            });
+
+            // Render items
+            renderItems();
+
+            // Update UI elements
+            updateUI();
+        }
+
+        function displayProfile(profileData) {
+            // Basic profile display - replace with more detailed UI
+            alert(`Profile for ${profileData.name}:\nLevel: ${profileData.level}\nHP: ${profileData.hp}`);
+        }
+
+        // Helper function to flash the movement radius circle (optional visual feedback)
+        function flashMovementRadius() {
+            // Use setStyle instead of setOpacity for Leaflet circles
+            movementRadiusCircle.setStyle({ fillOpacity: 1, opacity: 1 }); // Make it fully visible
+            setTimeout(() => {
+                movementRadiusCircle.setStyle({ fillOpacity: 0.2, opacity: 0.7 }); // Back to semi-transparent
+            }, 500); // Flash for 0.5 seconds
+        }
+
+        // Initialize the application when the page loads
+        window.onload = init;
+
+        // Function to show a collection error banner
+        function showCollectionErrorBanner(message) {
+            const banner = document.getElementById('error-banner');
+            banner.textContent = message;
+            banner.style.display = 'block';
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 5000); // Hide banner after 5 seconds
+        }
+
+        // Track if player is in weapon attack mode
+        let attackMode = {
+            active: false,
+            weaponId: null,
+            damage: 0
+        };
+
+        // Function to handle item usage
+        function useItem(itemId) {
+            console.log("Using item:", itemId);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                // Find the item in the inventory
+                const itemIndex = player.inventory.findIndex(item => item.itemId === itemId);
+                if (itemIndex === -1) return;
+
+                const item = player.inventory[itemIndex];
+
+                // If it's a weapon, enter attack mode
+                if (item.type === 'weapon') {
+                    attackMode.active = true;
+                    attackMode.weaponId = itemId;
+                    attackMode.damage = item.stats?.attack || 5;
+                    attackMode.isHealing = false;
+
+                    // Change cursor to indicate attack mode
+                    document.body.style.cursor = 'crosshair';
+
+                    // Add class to highlight possible targets
+                    highlightTargetablePlayers();
+
+                    // Show instruction
+                    showCollectionErrorBanner("Select a player to attack!");
+                    return;
+                }
+
+                // If it's a consumable like a health potion, handle differently
+                if (item.type === 'consumable' && item.stats && item.stats.heal) {
+                    healMode.active = true;
+                    healMode.itemId = itemId;
+                    healMode.healAmount = item.stats.heal;
+
+                    // Change cursor to indicate heal mode
+                    document.body.style.cursor = 'cell';
+
+                    // Highlight possible targets
+                    highlightTargetablePlayers();
+
+                    // Show instruction
+                    showCollectionErrorBanner("Select a player to heal!");
+                    return;
+                }
+
+                // For other items, use immediately
+                socket.send(JSON.stringify({
+                    type: "use_item",
+                    itemId: itemId
+                }));
+
+                // Remove non-weapon, non-healing items from inventory immediately for better UX
+                if (itemIndex !== -1 && player.inventory[itemIndex].type !== 'weapon') {
+                    player.inventory.splice(itemIndex, 1);
+                    updateUI(); // Refresh UI to show item is gone
+                }
+            }
+        }
+
+        // Track if player is in heal mode
+        let healMode = {
+            active: false,
+            itemId: null,
+            healAmount: 0
+        };
+
+        // Function to highlight targetable players
+        function highlightTargetablePlayers() {
+            Object.keys(playerMarkers).forEach(pid => {
+                const markerElement = playerMarkers[pid].getElement();
+                if (markerElement) {
+                    const avatarElement = markerElement.querySelector('.player-avatar');
+                    if (avatarElement) {
+                        // Add targetable class to show player can be clicked
+                        avatarElement.classList.add('targetable-player');
+                    }
+                }
+            });
+        }
+
+        // Function to remove highlights from all players
+        function removePlayerHighlights() {
+            Object.keys(playerMarkers).forEach(pid => {
+                const markerElement = playerMarkers[pid].getElement();
+                if (markerElement) {
+                    const avatarElement = markerElement.querySelector('.player-avatar');
+                    if (avatarElement) {
+                        avatarElement.classList.remove('targetable-player');
+                    }
+                }
+            });
+        }
+
+        // Function to attack a player
+        function attackPlayer(targetId) {
+            if (!attackMode.active || !attackMode.weaponId) return;
+
+            console.log("Attacking player:", targetId, "with weapon:", attackMode.weaponId);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: "attack_player",
+                    targetPlayerId: targetId,
+                    weaponId: attackMode.weaponId,
+                    damage: attackMode.damage
+                }));
+
+                // Reset attack mode
+                attackMode.active = false;
+                attackMode.weaponId = null;
+                attackMode.damage = 0;
+
+                // Remove attack cursor
+                document.body.style.cursor = 'default';
+
+                // Remove highlights
+                removePlayerHighlights();
+
+                // Show a message that the attack was sent
+                showCollectionErrorBanner("Attack initiated!");
+            }
+        }
+
+        // Function to heal a player
+        function healPlayer(targetId) {
+            if (!healMode.active || !healMode.itemId) return;
+
+            console.log("Healing player:", targetId, "with item:", healMode.itemId);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: "heal_player",
+                    targetPlayerId: targetId,
+                    itemId: healMode.itemId,
+                    healAmount: healMode.healAmount
+                }));
+
+                // Reset heal mode
+                healMode.active = false;
+                healMode.itemId = null;
+                healMode.healAmount = 0;
+
+                // Remove heal cursor
+                document.body.style.cursor = 'default';
+
+                // Remove highlights
+                removePlayerHighlights();
+
+                // Show a message that healing was initiated
+                showCollectionErrorBanner("Healing initiated!");
+            }
+        }
+
+        // Function to cancel attack mode
+        function cancelAttackMode() {
+            attackMode.active = false;
+            attackMode.weaponId = null;
+            attackMode.damage = 0;
+            document.body.style.cursor = 'default';
+
+            // Remove attackable class from all player markers
+            Object.keys(playerMarkers).forEach(pid => {
+                const markerElement = playerMarkers[pid].getElement();
+                if (markerElement) {
+                    markerElement.querySelector('.player-marker')?.classList.remove('attackable-player');
+                }
+            });
+
+            showCollectionErrorBanner("Attack canceled");
+        }
+
+        // Function to handle item dropping
+        function dropItem(itemId) {
+            console.log("Dropping item:", itemId);
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: "drop_item",
+                    itemId: itemId
+                }));
+
+                // Remove item from local inventory immediately for better UX
+                // The server will confirm this in the next world_update
+                const itemIndex = player.inventory.findIndex(item => item.itemId === itemId);
+                if (itemIndex !== -1) {
+                    player.inventory.splice(itemIndex, 1);
+                    updateUI(); // Refresh UI to show item is gone
+                }
+            }
+        }
+
+        // Function to create a chat bubble element
+        function createChatBubble(message, sender) {
+            const chatBubble = document.createElement('div');
+            chatBubble.className = 'chat-bubble';
+            chatBubble.textContent = `${sender}: ${message}`;
+            return chatBubble;
+        }
+
+        // Function to add a chat bubble to the map (near the sender's marker)
+        function addChatBubbleToMap(chatBubble, senderId) {
+            if (!playerMarkers[senderId]) return; // Marker might not exist yet
+
+            const marker = playerMarkers[senderId];
+            const markerLatLng = marker.getLatLng();
+            const chatBubbleContainer = L.divIcon({
+                html: chatBubble.outerHTML,
+                className: 'chat-bubble-container',
+                iconSize: [0, 0], // Dynamic size
+                iconAnchor: [0, 0] // Dynamic anchor
+            }).addTo(map);
+
+            // Position chat bubble
+            chatBubbleContainer.setLatLng(markerLatLng);
+            //Adjust position of chatBubbleContainer to avoid overlapping with the marker
+            const pos = map.latLngToContainerPoint(markerLatLng)
+            pos.y -= 40
+            chatBubbleContainer.setLatLng(map.containerPointToLatLng(pos))
+
+            // Remove chat bubble after a short time
+            setTimeout(() => {
+                map.removeLayer(chatBubbleContainer);
+            }, 10000); // Remove after 10 seconds
+        }
+
+        // Settings Modal Functions
+        function openSettingsModal() {
+            // Populate current player data
+            if (player) {
+                document.getElementById('nickname-input').value = player.name || '';
+                populatePlayerStats();
+                populateAvatarSelector();
+            }
+            document.getElementById('settings-modal').style.display = 'block';
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function populatePlayerStats() {
+            const statsContainer = document.getElementById('player-stats');
+            if (!player || !statsContainer) return;
+
+            statsContainer.innerHTML = `
+                <div style="margin-bottom: 5px;"><strong>Level:</strong> ${player.level}</div>
+                <div style="margin-bottom: 5px;"><strong>HP:</strong> ${player.hp}/100</div>
+                <div style="margin-bottom: 5px;"><strong>XP:</strong> ${player.xp}</div>
+                <div style="margin-bottom: 5px;"><strong>Gold:</strong> ${player.gold}</div>
+                <div style="margin-bottom: 5px;"><strong>Strength:</strong> ${player.stats?.strength || 0}</div>
+                <div style="margin-bottom: 5px;"><strong>Dexterity:</strong> ${player.stats?.dexterity || 0}</div>
+                <div style="margin-bottom: 5px;"><strong>Intelligence:</strong> ${player.stats?.intelligence || 0}</div>
+                <div style="margin-bottom: 5px;"><strong>Stamina:</strong> ${player.stats?.stamina || 0}</div>
+                <div style="margin-bottom: 5px;"><strong>Items Collected:</strong> ${player.inventory?.length || 0}</div>
+            `;
+        }
+
+        function populateAvatarSelector() {
+            const avatarContainer = document.getElementById('avatar-selector');
+            if (!avatarContainer) return;
+
+            // Clear existing avatars
+            avatarContainer.innerHTML = '';
+
+            // Add available avatars if we have them
+            if (window.availableAvatars && window.availableAvatars.length > 0) {
+                window.availableAvatars.forEach(avatarUrl => {
+                    const avatarDiv = document.createElement('div');
+                    avatarDiv.style.width = '50px';
+                    avatarDiv.style.height = '50px';
+                    avatarDiv.style.cursor = 'pointer';
+                    avatarDiv.style.border = player && player.avatar === avatarUrl ? '3px solid #4CAF50' : '3px solid transparent';
+                    avatarDiv.style.borderRadius = '50%';
+                    avatarDiv.style.overflow = 'hidden';
+
+                    const avatarImg = document.createElement('img');
+                    avatarImg.src = avatarUrl;
+                    avatarImg.alt = 'Avatar option';
+                    avatarImg.style.width = '100%';
+                    avatarImg.style.height = '100%';
+                    avatarImg.style.objectFit = 'cover';
+
+                    avatarDiv.appendChild(avatarImg);
+                    avatarDiv.addEventListener('click', () => {
+                        // Update selection UI
+                        document.querySelectorAll('#avatar-selector > div').forEach(div => {
+                            div.style.border = '3px solid transparent';
+                        });
+                        avatarDiv.style.border = '3px solid #4CAF50';
+
+                        // Store selected avatar
+                        window.selectedAvatar = avatarUrl;
+                    });
+
+                    avatarContainer.appendChild(avatarDiv);
+                });
+            } else {
+                // Default avatars if none available
+                for (let i = 1; i <= 5; i++) {
+                    const avatarUrl = `https://robohash.org/${i}?size=64x64&set=set1`;
+                    const avatarDiv = document.createElement('div');
+                    avatarDiv.style.width = '50px';
+                    avatarDiv.style.height = '50px';
+                    avatarDiv.style.cursor = 'pointer';
+                    avatarDiv.style.border = player && player.avatar === avatarUrl ? '3px solid #4CAF50' : '3px solid transparent';
+                    avatarDiv.style.borderRadius = '50%';
+                    avatarDiv.style.overflow = 'hidden';
+
+                    const avatarImg = document.createElement('img');
+                    avatarImg.src = avatarUrl;
+                    avatarImg.alt = 'Avatar option';
+                    avatarImg.style.width = '100%';
+                    avatarImg.style.height = '100%';
+                    avatarImg.style.objectFit = 'cover';
+
+                    avatarDiv.appendChild(avatarImg);
+                    avatarDiv.addEventListener('click', () => {
+                        // Update selection UI
+                        document.querySelectorAll('#avatar-selector > div').forEach(div => {
+                            div.style.border = '3px solid transparent';
+                        });
+                        avatarDiv.style.border = '3px solid #4CAF50';
+
+                        // Store selected avatar
+                        window.selectedAvatar = avatarUrl;
+                    });
+
+                    avatarContainer.appendChild(avatarDiv);
+                }
+            }
+        }
+
+        function saveSettings() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+            const newName = document.getElementById('nickname-input').value.trim();
+
+            // Update name if changed
+            if (newName && newName !== player.name) {
+                socket.send(JSON.stringify({
+                    type: "update_profile",
+                    name: newName
+                }));
+            }
+
+            // Update avatar if changed
+            if (window.selectedAvatar && window.selectedAvatar !== player.avatar) {
+                socket.send(JSON.stringify({
+                    type: "update_avatar",
+                    avatar: window.selectedAvatar
+                }));
+            }
+
+            closeSettingsModal();
+        }
+
+    </script>
+</body>
+</html>

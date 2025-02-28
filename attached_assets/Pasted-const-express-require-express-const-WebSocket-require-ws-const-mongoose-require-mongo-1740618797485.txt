@@ -1,0 +1,111 @@
+const express = require("express");
+const WebSocket = require("ws");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const { v4: uuidv4 } = require("uuid");
+
+const app = express();
+app.use(cors());
+const PORT = 3000;
+
+// Connect to MongoDB
+mongoose.connect("mongodb://localhost:27017/mmo", { useNewUrlParser: true, useUnifiedTopology: true });
+
+const PlayerSchema = new mongoose.Schema({
+    id: String,
+    name: String,
+    level: Number,
+    xp: Number,
+    gold: Number,
+    hp: Number,
+    attack: Number,
+    position: { lat: Number, lng: Number },
+    inventory: Array
+});
+const Player = mongoose.model("Player", PlayerSchema);
+
+const wss = new WebSocket.Server({ server: app.listen(PORT, () => console.log(`Server running on port ${PORT}`)) });
+
+const items = [
+    { id: "potion-1", name: "Health Potion", type: "consumable", heal: 20, location: { lat: 40.7128, lng: -74.0060 } },
+    { id: "sword-1", name: "Iron Sword", type: "weapon", attack: 5, location: { lat: 40.7130, lng: -74.0055 } }
+];
+
+const npcs = [
+    { id: "npc-1", name: "Old Man", position: { lat: 40.7129, lng: -74.0061 }, quest: { id: "quest-1", description: "Collect 2 Health Potions", reward: { xp: 50, gold: 10 } } }
+];
+
+const tradeRequests = {};
+const playerQuests = {};
+const players = {};
+
+wss.on("connection", async (ws) => {
+    const playerId = uuidv4();
+    let player = await Player.findOne({ id: playerId });
+
+    if (!player) {
+        player = new Player({ id: playerId, name: `Player-${playerId.slice(0, 4)}`, level: 1, xp: 0, gold: 10, hp: 100, attack: 5, position: { lat: 0, lng: 0 }, inventory: [] });
+        await player.save();
+    }
+    players[playerId] = player;
+    playerQuests[playerId] = [];
+
+    ws.send(JSON.stringify({ type: "load_player", player, items, npcs }));
+
+    ws.on("message", async (data) => {
+        const msg = JSON.parse(data);
+
+        if (msg.type === "update_position") {
+            player.position = msg.position;
+            await player.save();
+        }
+
+        if (msg.type === "pickup_item") {
+            const item = items.find((i) => i.id === msg.itemId);
+            if (item) {
+                player.inventory.push(item);
+                items.splice(items.indexOf(item), 1);
+                await player.save();
+            }
+        }
+
+        if (msg.type === "attack_player") {
+            if (players[msg.targetId]) {
+                players[msg.targetId].hp -= player.attack;
+                if (players[msg.targetId].hp <= 0) players[msg.targetId].hp = 0;
+            }
+        }
+
+        if (msg.type === "accept_quest") {
+            const npc = npcs.find((n) => n.id === msg.npcId);
+            if (npc) playerQuests[playerId].push(npc.quest);
+        }
+
+        if (msg.type === "complete_quest") {
+            const quest = playerQuests[playerId].find((q) => q.id === msg.questId);
+            if (quest) {
+                player.xp += quest.reward.xp;
+                player.gold += quest.reward.gold;
+                await player.save();
+                playerQuests[playerId] = playerQuests[playerId].filter((q) => q.id !== msg.questId);
+            }
+        }
+
+        if (msg.type === "gain_xp") {
+            player.xp += msg.amount;
+            if (player.xp >= player.level * 100) {
+                player.level++;
+                player.xp = 0;
+                player.attack += 2;
+                player.hp += 10;
+            }
+            await player.save();
+        }
+
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: "update_players", players }));
+            }
+        });
+    });
+});
