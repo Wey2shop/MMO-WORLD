@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <h1>WebSocket Client</h1>
+    <input type="text" id="messageInput" placeholder="Type a message">
+    <button onclick="sendMessage()">Send</button>
+    <p id="output"></p>
+
+    <script>
+        const socket = new WebSocket(`wss://${window.location.hostname.replace('replit.dev', 'replit.dev')}`);
+        
+        socket.onopen = () => console.log("Connected to server");
+        socket.onmessage = (event) => {
+            document.getElementById("output").innerText = "Server says: " + event.data;
+        };
+
+        function sendMessage() {
+            const message = document.getElementById("messageInput").value;
+            socket.send(message);
+        }
+    </script>
+</body>
+</html>
